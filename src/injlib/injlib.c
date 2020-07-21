@@ -563,11 +563,11 @@ InjpQueueApc(
   //
   // Allocate memory for the KAPC structure.
   //
-
+  InjDbgPrint("[injlib]: InjpQueueApc\n");
   PKAPC Apc = ExAllocatePoolWithTag(NonPagedPoolNx,
                                     sizeof(KAPC),
                                     INJ_MEMORY_TAG);
-
+  
   if (!Apc)
   {
     return STATUS_INSUFFICIENT_RESOURCES;
@@ -576,7 +576,7 @@ InjpQueueApc(
   //
   // Initialize and queue the APC.
   //
-
+  InjDbgPrint("[injlib]: KeInitializeApc...\n");
   KeInitializeApc(Apc,                                  // Apc
                   PsGetCurrentThread(),                 // Thread
                   OriginalApcEnvironment,               // Environment
@@ -586,11 +586,13 @@ InjpQueueApc(
                   ApcMode,                              // ApcMode
                   NormalContext);                       // NormalContext
 
+  InjDbgPrint("[injlib]: KeInsertQueueApc...\n");
   BOOLEAN Inserted = KeInsertQueueApc(Apc,              // Apc
                                       SystemArgument1,  // SystemArgument1
                                       SystemArgument2,  // SystemArgument2
                                       0);               // Increment
-
+  
+  InjDbgPrint("[injlib]: KeInsertQueueApc res: 0x%X\n", Inserted);
   if (!Inserted)
   {
     ExFreePoolWithTag(Apc, INJ_MEMORY_TAG);
@@ -636,6 +638,9 @@ InjpInjectApcKernelRoutine(
   // function.  Just release the memory of the APC
   // structure and return back.
   //
+
+  // PINJ_INJECTION_INFO InjectionInfo = NormalContext;
+  // InjInject(InjectionInfo);
 
   ExFreePoolWithTag(Apc, INJ_MEMORY_TAG);
 }
@@ -826,6 +831,7 @@ InjpInjectX64NoThunk(
 
   RtlInitUnicodeString(DllPath, DllPathBuffer);
 
+  InjDbgPrint("[injlib]: Usermode APC queue: \n\t LdrLoadDllRoutineAddress: %p\n\tDllPath: %wZ\n", InjectionInfo->LdrLoadDllRoutineAddress, DllPath);
   Status = InjpQueueApc(UserMode,
                         (PKNORMAL_ROUTINE)(ULONG_PTR)InjectionInfo->LdrLoadDllRoutineAddress,
                         NULL,     // Translates to 1st param. of LdrLoadDll (SearchPath)
@@ -891,6 +897,18 @@ InjInitialize(
     if (!NT_SUCCESS(Status))
     {
       goto Error;
+    }
+
+    switch (Architecture)
+    {
+    case InjArchitectureX86:
+      InjDbgPrint("\t Library[x86] path: %wZ", &InjDllPath[Architecture]);
+      break;
+    case InjArchitectureX64:
+      InjDbgPrint("\t Library[x64] path: %wZ", &InjDllPath[Architecture]);
+      break;
+    default:
+      break;
     }
   }
 
@@ -1177,6 +1195,8 @@ InjInject(
   // protection type.
   //
 
+  InjDbgPrint("[injlib]: InjInject called!\n");
+
   OBJECT_ATTRIBUTES ObjectAttributes;
   InitializeObjectAttributes(&ObjectAttributes,
                              NULL,
@@ -1198,6 +1218,7 @@ InjInject(
 
   if (!NT_SUCCESS(Status))
   {
+    InjDbgPrint("[injlib]: ZwCreateSection failed! Status: 0x%X\n", Status);
     return Status;
   }
 
@@ -1237,25 +1258,28 @@ InjInject(
 
     NT_ASSERT(Architecture != InjArchitectureMax);
 
-    InjpInject(InjectionInfo,
+    Status = InjpInject(InjectionInfo,
                Architecture,
                SectionHandle,
                SectionSize);
+    InjDbgPrint("[injlib]: InjpInject: 0x%X\n", Status);
   }
 #if defined(_M_AMD64)
   else if (InjectionInfo->Method == InjMethodThunkless)
   {
     Architecture = InjArchitectureX64;
 
-    InjpInjectX64NoThunk(InjectionInfo,
+    Status = InjpInjectX64NoThunk(InjectionInfo,
                          Architecture,
                          SectionHandle,
                          SectionSize);
+    InjDbgPrint("[injlib]: InjpInjectX64NoThunk: 0x%X\n", Status);
   }
 #endif
 
   ZwClose(SectionHandle);
 
+  InjDbgPrint("[injlib]: InjectionInfo->ForceUserApc: %d\n", InjectionInfo->ForceUserApc);
   if (NT_SUCCESS(Status) && InjectionInfo->ForceUserApc)
   {
     //
@@ -1469,11 +1493,15 @@ InjLoadImageNotifyRoutine(
 
 #endif
 
-    InjpQueueApc(KernelMode,
-                 &InjpInjectApcNormalRoutine,
-                 InjectionInfo,
-                 NULL,
-                 NULL);
+    NTSTATUS QueueApcResult = InjpQueueApc(KernelMode,
+                                            &InjpInjectApcNormalRoutine,
+                                            InjectionInfo,
+                                            NULL,
+                                            NULL);
+    if (!NT_SUCCESS(QueueApcResult))
+    {
+      InjDbgPrint("[injlib]: Injecting failed. Status: 0x%X\n", QueueApcResult);
+    }
 
     //
     // Mark that this process is injected.
