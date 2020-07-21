@@ -110,11 +110,16 @@
     <FilesToPackage Include="$(TargetPath)" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="io_handler.cpp" />
     <ClCompile Include="main.c" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\injlib\injlib.vcxproj">
       <Project>{e2abae21-2862-4356-ba49-28c060878d76}</Project>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="device_extension.h" />
+    <ClInclude Include="io_handler.h" />
   </ItemGroup>
 </Project>

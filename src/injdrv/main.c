@@ -2,6 +2,9 @@
 
 #include <ntddk.h>
 
+#include "io_handler.h"
+#include "device_extension.h"
+
 //////////////////////////////////////////////////////////////////////////
 // Helper functions.
 //////////////////////////////////////////////////////////////////////////
@@ -265,6 +268,49 @@ DriverEntry(
   }
 
   //
+  // Init handlers
+  //
+  for (int i = 0; i <= IRP_MJ_MAXIMUM_FUNCTION; i++)
+  {
+    DriverObject->MajorFunction[i] = DefaultDispatchHandler;
+  }
+  DriverObject->MajorFunction[IRP_MJ_DEVICE_CONTROL] = DeviceControlHandler;
+
+  
+  //
+  // Create logical device for driver
+  //
+  PDEVICE_OBJECT deviceObject;
+  Status =
+    IoCreateDevice(
+      DriverObject,
+      sizeof(DEVICE_EXTENSION),
+      NULL,
+      FILE_DEVICE_UNKNOWN,
+      NULL,
+      FALSE,
+      &deviceObject
+    );
+  if (!NT_SUCCESS(Status))
+  {
+    return Status;
+  }
+
+  UNICODE_STRING LinkName = RTL_CONSTANT_STRING(L"\\DosDevices\\InjectorHandler");
+  UNICODE_STRING DeviceName = RTL_CONSTANT_STRING(L"\\Device\\InjectorHandler");
+  Status = IoCreateSymbolicLink(&LinkName, &DeviceName);
+  
+  // { ... }
+
+  if (!NT_SUCCESS(Status))
+  {
+    IoDeleteDevice(deviceObject);
+    return Status;
+  }
+  
+
+
+  //
   // Install CreateProcess and LoadImage notification routines.
   //
 
@@ -272,6 +318,8 @@ DriverEntry(
 
   if (!NT_SUCCESS(Status))
   {
+    IoDeleteSymbolicLink(&LinkName);
+    IoDeleteDevice(deviceObject);
     return Status;
   }
 
@@ -280,6 +328,8 @@ DriverEntry(
   if (!NT_SUCCESS(Status))
   {
     PsSetCreateProcessNotifyRoutineEx(&InjCreateProcessNotifyRoutineEx, TRUE);
+    IoDeleteSymbolicLink(&LinkName);
+    IoDeleteDevice(deviceObject);
     return Status;
   }
 
