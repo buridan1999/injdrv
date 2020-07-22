@@ -12,18 +12,21 @@ NTSTATUS CompliteIrp(PIRP Irp, NTSTATUS status, ULONG info)
 
 NTSTATUS DefaultDispatchHandler(IN PDEVICE_OBJECT fdo, IN PIRP Irp)
 {
+  UNREFERENCED_PARAMETER(fdo);
+
   return CompliteIrp(Irp, STATUS_SUCCESS, 0);
 }
 
 NTSTATUS DeviceControlHandler(IN PDEVICE_OBJECT fdo, IN PIRP Irp)
 {
+  UNREFERENCED_PARAMETER(fdo);
+
   PIO_STACK_LOCATION  currentIrpStack = IoGetCurrentIrpStackLocation(Irp);
 
-  PVOID               inputBuffer;
-  PVOID               outputBuffer;
-  ULONG               inputBufferLength;
-  ULONG               outputBufferLength;
-  ULONG               ioControlCode;
+  //PVOID               inputBuffer;
+  //PVOID               outputBuffer;
+  //ULONG               inputBufferLength;
+  //ULONG               outputBufferLength;
 
   KdPrint(("DeviceControlHandler -> ioctl get: 0x%X", currentIrpStack->Parameters.DeviceIoControl.IoControlCode));
 

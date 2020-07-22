@@ -201,6 +201,7 @@ DriverDestroy(
   InjDestroy();
 }
 
+extern "C"
 NTSTATUS
 NTAPI
 DriverEntry(
@@ -287,7 +288,7 @@ DriverEntry(
       sizeof(DEVICE_EXTENSION),
       NULL,
       FILE_DEVICE_UNKNOWN,
-      NULL,
+      0,
       FALSE,
       &deviceObject
     );

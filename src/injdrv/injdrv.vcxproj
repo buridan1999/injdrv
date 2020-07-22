@@ -111,7 +111,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="io_handler.cpp" />
-    <ClCompile Include="main.c" />
+    <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\injlib\injlib.vcxproj">
